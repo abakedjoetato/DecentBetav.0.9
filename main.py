@@ -23,18 +23,11 @@ for module_name in list(sys.modules.keys()):
 # Import py-cord v2.6.1
 try:
     import discord
-    import discord.ext.commands as commands
-    # Get version from package metadata for py-cord
-    try:
-        version = discord.__version__
-    except AttributeError:
-        # Fallback version detection for py-cord
-        import pkg_resources
-        version = pkg_resources.get_distribution("py-cord").version
-    print(f"✅ Successfully imported py-cord v{version}")
+    from discord.ext import commands
+    print(f"✅ Successfully imported py-cord")
 except ImportError as e:
     print(f"❌ Error importing py-cord: {e}")
-    print("Please ensure py-cord 2.6.1 is installed: pip install py-cord==2.6.1")
+    print("Please ensure py-cord 2.6.1 is installed")
     sys.exit(1)
 
 from dotenv import load_dotenv
