@@ -1,3 +1,4 @@
+
 """
 Emerald's Killfeed - Parser Management System
 Manage killfeed parsing, log processing, and data collection
@@ -13,13 +14,6 @@ from bot.cogs.autocomplete import ServerAutocomplete
 
 logger = logging.getLogger(__name__)
 
-import discord
-from discord.ext import commands
-import logging
-from datetime import datetime, timezone
-
-logger = logging.getLogger(__name__)
-
 class Parsers(commands.Cog):
     """
     PARSER MANAGEMENT
@@ -31,10 +25,8 @@ class Parsers(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.slash_command(name="parser", description="Parser management commands")
-    async def parser(self, ctx: discord.ApplicationContext):
-        """Base parser command"""
-        pass
+    # Create subcommand group using SlashCommandGroup
+    parser = discord.SlashCommandGroup("parser", "Parser management commands")
 
     @parser.command(name="status", description="Check parser status")
     async def parser_status(self, ctx: discord.ApplicationContext):
@@ -103,7 +95,7 @@ class Parsers(commands.Cog):
         try:
             guild_id = ctx.guild.id
 
-            # Check if server exists in guild config
+            # Check if server exists in guild config - fixed database call
             guild_config = await self.bot.database.guilds.find_one({"guild_id": guild_id})
             if not guild_config:
                 await ctx.respond("❌ This guild is not configured!", ephemeral=True)
@@ -177,7 +169,7 @@ class Parsers(commands.Cog):
                 timestamp=datetime.now(timezone.utc)
             )
 
-            # Get recent parsing stats from database
+            # Get recent parsing stats from database - fixed database calls
             try:
                 # Count recent killfeed entries (last 24 hours)
                 recent_kills = await self.bot.database.killfeed.count_documents({
