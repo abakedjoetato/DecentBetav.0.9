@@ -415,10 +415,8 @@ class Gambling(commands.Cog):
 
     @discord.slash_command(name="roulette", description="🎯 Elite animated roulette with realistic wheel physics")
     async def roulette(self, ctx: discord.ApplicationContext, bet: int, 
-                      choice: discord.Option(str, "Choose your bet", choices=[
-                          "red", "black", "green", "even", "odd", "low", "high",
-                          "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
-                          "11", "12", "13", "14", "15", "16", "17", "18"
+                      choice: discord.Option(str, "Choose your bet (red/black/green/even/odd/low/high or number 0-36)", choices=[
+                          "red", "black", "green", "even", "odd", "low", "high"
                       ])):
         """Elite animated roulette with realistic wheel simulation"""
         try:
@@ -446,19 +444,26 @@ class Gambling(commands.Cog):
                 return
 
             # Validate choice - support both dropdown choices and manual number input
-            valid_choices = {
-                'red', 'black', 'green', 'odd', 'even', 'low', 'high'
-            }
+            choice_lower = choice.lower().strip()
             
-            # Add numbers 0-36 as valid choices
-            for i in range(37):
-                valid_choices.add(str(i))
-
-            choice_lower = choice.lower()
-            if choice_lower not in valid_choices:
+            # Check if it's a valid color/type bet
+            valid_type_bets = {'red', 'black', 'green', 'odd', 'even', 'low', 'high'}
+            
+            # Check if it's a valid number (0-36)
+            is_valid_number = False
+            if choice_lower.isdigit():
+                num = int(choice_lower)
+                if 0 <= num <= 36:
+                    is_valid_number = True
+            
+            # Validate the choice
+            if choice_lower not in valid_type_bets and not is_valid_number:
                 await ctx.respond(
-                    "❌ Invalid choice! Use: red, black, green, odd, even, low (1-18), high (19-36), or numbers (0-36)\n"
-                    "💡 For numbers 19-36, type the number manually in the choice field.",
+                    "❌ Invalid choice! Use:\n"
+                    "• **Colors:** red, black, green\n"
+                    "• **Types:** even, odd, low (1-18), high (19-36)\n"
+                    "• **Numbers:** 0-36 (type the number manually)\n"
+                    "💡 For specific numbers, just type the number in the choice field.",
                     ephemeral=True
                 )
                 return
@@ -479,12 +484,12 @@ class Gambling(commands.Cog):
                 
                 embed = discord.Embed(
                     title="🎯 ELITE ROULETTE",
-                    description=f"**Bet:** ${bet:,}\n**Choice:** {choice.title()}\n\nClick **SPIN WHEEL** to begin!",
+                    description=f"**Bet:** ${bet:,}\n**Choice:** {choice_lower.title()}\n\nClick **SPIN WHEEL** to begin!",
                     color=0xff6b35
                 )
                 embed.add_field(
                     name="🎲 Your Bet",
-                    value=f"${bet:,} on **{choice.title()}**",
+                    value=f"${bet:,} on **{choice_lower.title()}**",
                     inline=True
                 )
                 embed.add_field(
