@@ -148,7 +148,8 @@ class EmeraldKillfeedBot(commands.Bot):
                 'bot.cogs.premium',
                 'bot.cogs.leaderboards_fixed',
                 'bot.cogs.admin_channels',
-                'bot.cogs.embed_test'
+                'bot.cogs.embed_test',
+                'bot.cogs.parsers'
             ]
             
             loaded_cogs = []

@@ -48,13 +48,13 @@ class LogParser:
             'server_max_players': re.compile(r'\[(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}:\d{3})\].*playersmaxcount=(\d+)'),
 
             # Airdrop - trigger on "Flying" line
-            'airdrop_flying': re.compile(r'\[(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}:\d{3})\].*Airdrop.*Flying.*location.*X=([0-9.-]+).*Y=([0-9.-]+)'),
+            'airdrop': re.compile(r'\[(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}:\d{3})\].*Airdrop.*Flying.*location.*X=([0-9.-]+).*Y=([0-9.-]+)'),
 
             # Mission with level detection
-            'mission_start': re.compile(r'\[(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}:\d{3})\].*Mission.*([A-Za-z_]+).*Level.*(\d+).*started'),
+            'mission': re.compile(r'\[(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}:\d{3})\].*Mission.*([A-Za-z_]+).*Level.*(\d+).*started'),
 
             # Trader spawn events (not restocks)
-            'trader_spawn': re.compile(r'\[(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}:\d{3})\].*Trader.*([A-Za-z_]+).*spawned.*location'),
+            'trader': re.compile(r'\[(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}:\d{3})\].*Trader.*([A-Za-z_]+).*spawned.*location'),
 
             # Helicopter crash
             'helicrash': re.compile(r'\[(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}:\d{3})\].*Helicopter.*crash.*X=([0-9.-]+).*Y=([0-9.-]+)'),
@@ -285,41 +285,57 @@ class LogParser:
             if not conn:
                 return None
 
-            server_id = str(server_config.get('_id', 'unknown'))
+            server_id = str(server_config.get('server_id', server_config.get('_id', 'unknown')))
             sftp_host = server_config.get('host')
-            # Ensure log file detection starts at ./ and uses correct _id path resolution
-            remote_path = f"./{sftp_host}_{server_id}/Logs/Deadside.log"
+            # Try multiple possible log paths
+            possible_paths = [
+                f"./{sftp_host}_{server_id}/Logs/Deadside.log",
+                f"./{sftp_host}_{server_id}/logs/Deadside.log",
+                f"./Logs/Deadside.log",
+                f"./logs/Deadside.log"
+            ]
             logger.info(f"Using SFTP log path: {remote_path} for server {server_id} on host {sftp_host}")
 
             async with conn.start_sftp_client() as sftp:
-                try:
-                    # Check file stats for rotation detection
-                    file_stat = await sftp.stat(remote_path)
-                    file_size = file_stat.size
+                # Try each possible path until we find the log file
+                for remote_path in possible_paths:
+                    try:
+                        logger.info(f"Trying SFTP log path: {remote_path} for server {server_id} on host {sftp_host}")
+                        
+                        # Check file stats for rotation detection
+                        file_stat = await sftp.stat(remote_path)
+                        file_size = file_stat.size
 
-                    server_key = f"{sftp_host}_{server_id}"
+                        server_key = f"{sftp_host}_{server_id}"
 
-                    # Detect log rotation by checking if file size decreased
-                    if server_key in self.last_log_position:
-                        if file_size < self.last_log_position[server_key]:
-                            logger.info(f"Log rotation detected for {server_key}")
-                            self.last_log_position[server_key] = 0  # Reset position
+                        # Detect log rotation by checking if file size decreased
+                        if server_key in self.last_log_position:
+                            if file_size < self.last_log_position[server_key]:
+                                logger.info(f"Log rotation detected for {server_key}")
+                                self.last_log_position[server_key] = 0  # Reset position
 
-                    # Read from last position
-                    start_position = self.last_log_position.get(server_key, 0)
+                        # Read from last position
+                        start_position = self.last_log_position.get(server_key, 0)
 
-                    async with sftp.open(remote_path, 'r') as f:
-                        await f.seek(start_position)
-                        new_content = await f.read()
+                        async with sftp.open(remote_path, 'r') as f:
+                            await f.seek(start_position)
+                            new_content = await f.read()
 
-                        # Update position
-                        self.last_log_position[server_key] = file_size
+                            # Update position
+                            self.last_log_position[server_key] = file_size
 
-                        return new_content
+                            logger.info(f"Successfully read log file from: {remote_path}")
+                            return new_content
 
-                except FileNotFoundError:
-                    logger.warning(f"Log file not found: {remote_path}")
-                    return None
+                    except FileNotFoundError:
+                        logger.debug(f"Log file not found at: {remote_path}")
+                        continue
+                    except Exception as e:
+                        logger.warning(f"Error reading log file at {remote_path}: {e}")
+                        continue
+                
+                logger.warning(f"No log file found at any of the attempted paths for server {server_id}")
+                return None
 
         except Exception as e:
             logger.error(f"Failed to fetch SFTP log file: {e}")
@@ -657,6 +673,43 @@ class LogParser:
 
         except Exception as e:
             logger.error(f"Failed SFTP log parsing: {e}")
+
+    async def parse_dev_logs(self, guild_id: int, server_config: Dict[str, Any]):
+        """Parse logs in development mode from local files"""
+        try:
+            server_id = server_config.get('server_id', 'dev_server')
+            
+            # Get log content from dev files
+            log_content = await self.get_dev_log_content()
+            
+            if not log_content:
+                logger.warning(f"No dev log content found for server {server_id}")
+                return
+
+            lines = log_content.splitlines()
+
+            # Track position for incremental parsing
+            server_key = f"{guild_id}_{server_id}"
+            last_position = self.last_log_position.get(server_key, 0)
+
+            # Process new lines only
+            new_lines = lines[last_position:]
+            new_events = 0
+
+            for line in new_lines:
+                event_data = self.parse_log_line(line)
+                if event_data:
+                    await self.send_log_event_embed(guild_id, server_id, event_data)
+                    new_events += 1
+
+            # Update position
+            self.last_log_position[server_key] = len(lines)
+
+            if new_events > 0:
+                logger.info(f"Processed {new_events} new dev log events for server {server_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to parse dev logs for server {server_config}: {e}")
 
     async def parse_server_logs(self, guild_id: int, server_config: Dict[str, Any]):
         """Parse logs for a single server (PREMIUM ONLY)"""

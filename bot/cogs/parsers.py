@@ -13,6 +13,13 @@ from bot.cogs.autocomplete import ServerAutocomplete
 
 logger = logging.getLogger(__name__)
 
+import discord
+from discord.ext import commands
+import logging
+from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
+
 class Parsers(commands.Cog):
     """
     PARSER MANAGEMENT
@@ -51,6 +58,40 @@ class Parsers(commands.Cog):
             
             embed.add_field(
                 name="📡 Killfeed Parser",
+                value=f"Status: **{killfeed_status}**\nMonitors live PvP events",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="📜 Log Parser",
+                value=f"Status: **{log_status}**\nProcesses server log files",
+                inline=True
+            )
+            
+            embed.add_field(
+                name="📚 Historical Parser",
+                value=f"Status: **{historical_status}**\nRefreshes historical data",
+                inline=True
+            )
+            
+            # Scheduler status
+            scheduler_status = "🟢 Running" if self.bot.scheduler.running else "🔴 Stopped"
+            embed.add_field(
+                name="⏰ Background Scheduler",
+                value=f"Status: **{scheduler_status}**\nManages automated tasks",
+                inline=False
+            )
+            
+            embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
+            
+            await ctx.respond(embed=embed)
+            
+        except Exception as e:
+            logger.error(f"Failed to check parser status: {e}")
+            await ctx.respond("❌ Failed to retrieve parser status.", ephemeral=True)
+
+def setup(bot):
+    bot.add_cog(Parsers(bot))="📡 Killfeed Parser",
                 value=f"Status: **{killfeed_status}**\nMonitors live PvP events",
                 inline=True
             )
