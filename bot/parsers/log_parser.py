@@ -285,7 +285,7 @@ class LogParser:
             if not conn:
                 return None
 
-            server_id = str(server_config.get('server_id', server_config.get('_id', 'unknown')))
+            server_id = str(server_config.get('_id', 'unknown'))
             sftp_host = server_config.get('host')
             # Try multiple possible log paths
             possible_paths = [
@@ -294,7 +294,6 @@ class LogParser:
                 f"./Logs/Deadside.log",
                 f"./logs/Deadside.log"
             ]
-            logger.info(f"Using SFTP log path: {remote_path} for server {server_id} on host {sftp_host}")
 
             async with conn.start_sftp_client() as sftp:
                 # Try each possible path until we find the log file
@@ -607,7 +606,7 @@ class LogParser:
     async def parse_logs_for_server(self, guild_id: int, server_config: Dict[str, Any]):
         """Parse logs for a specific server"""
         try:
-            if not await self.bot.db_manager.is_premium_server(guild_id, server_config['server_id']):
+            if not await self.bot.db_manager.is_premium_server(guild_id, str(server_config.get('_id', 'unknown'))):
                 return
 
             # Parse logs using SSH/SFTP
@@ -626,7 +625,7 @@ class LogParser:
             port = server_config.get('port', 22)
             username = server_config.get('username')
             password = server_config.get('password')
-            server_id = server_config.get('server_id', server_config.get('_id'))
+            server_id = str(server_config.get('_id', 'unknown'))
 
             if not all([host, username, password]):
                 logger.warning(f"Missing SFTP credentials for server {server_id}")
@@ -677,7 +676,7 @@ class LogParser:
     async def parse_dev_logs(self, guild_id: int, server_config: Dict[str, Any]):
         """Parse logs in development mode from local files"""
         try:
-            server_id = server_config.get('server_id', 'dev_server')
+            server_id = str(server_config.get('_id', 'dev_server'))
             
             # Get log content from dev files
             log_content = await self.get_dev_log_content()
@@ -714,7 +713,7 @@ class LogParser:
     async def parse_server_logs(self, guild_id: int, server_config: Dict[str, Any]):
         """Parse logs for a single server (PREMIUM ONLY)"""
         try:
-            server_id = server_config.get('server_id', 'unknown')
+            server_id = str(server_config.get('_id', 'unknown'))
 
             # Check if server has premium
             is_premium = await self.bot.db_manager.is_premium_server(guild_id, server_id)
