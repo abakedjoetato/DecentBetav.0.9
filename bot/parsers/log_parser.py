@@ -242,12 +242,12 @@ class LogParser:
             if not guild_config:
                 return
 
-            # Look for voice channel ID in server config
-            servers = guild_config.get('servers', {})
-            server_config = servers.get(server_id, {})
-            voice_channel_id = server_config.get('voice_channel_id')
+            # Look for playercountvc channel (set by /setchannel playercountvc command)
+            channels = guild_config.get('channels', {})
+            voice_channel_id = channels.get('playercountvc')
 
             if not voice_channel_id:
+                logger.debug(f"No playercountvc channel configured for guild {guild_id}")
                 return
 
             # Get the voice channel
@@ -257,6 +257,7 @@ class LogParser:
 
             voice_channel = guild.get_channel(voice_channel_id)
             if not voice_channel:
+                logger.warning(f"Voice channel {voice_channel_id} not found for guild {guild_id}")
                 return
 
             # Build channel name: "{Server name} {current}/{max} with {queue} in queue"
@@ -473,18 +474,47 @@ class LogParser:
             if not guild_config:
                 return
 
-            logs_channel_id = guild_config.get('channels', {}).get('logs')
-            if not logs_channel_id:
+            channels = guild_config.get('channels', {})
+            event_type = event_data['type']
+            
+            # Map event types to channel types
+            channel_mapping = {
+                'player_join': 'connections',
+                'player_disconnect': 'connections', 
+                'player_queued': 'connections',
+                'player_failed_join': 'connections',
+                'airdrop': 'events',
+                'mission': 'events',
+                'trader': 'events',
+                'helicrash': 'events',
+                'server_crash': 'events',
+                'server_restart': 'events',
+                'queue_size': 'events'
+            }
+            
+            # Get the appropriate channel for this event type
+            channel_type = channel_mapping.get(event_type, 'events')  # Default to events
+            channel_id = channels.get(channel_type)
+            
+            # If specific channel not set, try fallback channels
+            if not channel_id:
+                # Try 'logs' as fallback for backward compatibility
+                channel_id = channels.get('logs')
+                
+            if not channel_id:
+                logger.debug(f"No channel configured for event type '{event_type}' (needs '{channel_type}' channel)")
                 return
 
-            channel = self.bot.get_channel(logs_channel_id)
+            channel = self.bot.get_channel(channel_id)
             if not channel:
+                logger.warning(f"Channel {channel_id} not found for event type '{event_type}'")
                 return
 
             # Create event-specific embed
             embed = await self._create_event_embed(event_data)
             if embed:
                 await channel.send(embed=embed)
+                logger.debug(f"Sent {event_type} embed to {channel_type} channel: {channel.name}")
 
         except Exception as e:
             logger.error(f"Failed to send log event embed: {e}")
