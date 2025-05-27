@@ -418,9 +418,7 @@ class Gambling(commands.Cog):
                       choice: discord.Option(str, "Choose your bet", choices=[
                           "red", "black", "green", "even", "odd", "low", "high",
                           "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
-                          "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
-                          "21", "22", "23", "24", "25", "26", "27", "28", "29", "30",
-                          "31", "32", "33", "34", "35", "36"
+                          "11", "12", "13", "14", "15", "16", "17", "18"
                       ])):
         """Elite animated roulette with realistic wheel simulation"""
         try:
@@ -436,6 +434,67 @@ class Gambling(commands.Cog):
                     color=0xff5e5e
                 )
                 await ctx.respond(embed=embed, ephemeral=True)
+                return
+
+            # Validate bet amount
+            if bet <= 0:
+                await ctx.respond("❌ Bet amount must be positive!", ephemeral=True)
+                return
+
+            if bet > 2000:
+                await ctx.respond("❌ Maximum bet is $2,000!", ephemeral=True)
+                return
+
+            # Validate choice - support both dropdown choices and manual number input
+            valid_choices = {
+                'red', 'black', 'green', 'odd', 'even', 'low', 'high'
+            }
+            
+            # Add numbers 0-36 as valid choices
+            for i in range(37):
+                valid_choices.add(str(i))
+
+            choice_lower = choice.lower()
+            if choice_lower not in valid_choices:
+                await ctx.respond(
+                    "❌ Invalid choice! Use: red, black, green, odd, even, low (1-18), high (19-36), or numbers (0-36)\n"
+                    "💡 For numbers 19-36, type the number manually in the choice field.",
+                    ephemeral=True
+                )
+                return
+
+            # Use lock to prevent concurrent games
+            async with self.get_user_lock(user_key):
+                # Check balance
+                wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
+                if wallet['balance'] < bet:
+                    await ctx.respond(
+                        f"❌ Insufficient funds! You have **${wallet['balance']:,}** but need **${bet:,}**",
+                        ephemeral=True
+                    )
+                    return
+
+                # Create interactive roulette view
+                view = RouletteView(self, ctx, bet, choice_lower)
+                
+                embed = discord.Embed(
+                    title="🎯 ELITE ROULETTE",
+                    description=f"**Bet:** ${bet:,}\n**Choice:** {choice.title()}\n\nClick **SPIN WHEEL** to begin!",
+                    color=0xff6b35
+                )
+                embed.add_field(
+                    name="🎲 Your Bet",
+                    value=f"${bet:,} on **{choice.title()}**",
+                    inline=True
+                )
+                embed.add_field(
+                    name="💰 Balance",
+                    value=f"${wallet['balance']:,}",
+                    inline=True
+                )
+                embed.set_footer(text="🎯 Good luck! Click SPIN to play")
+                
+                await ctx.respond(embed=embed, view=view)spond(embed=embed, ephemeral=True)
                 return
 
             # Validate bet
