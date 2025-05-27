@@ -264,31 +264,31 @@ class KillfeedParser:
         """Process a kill event and update database with proper streak and distance tracking"""
         try:
             # Add kill event to database
-            await self.bot.db_manager.add_kill_event(guild_id, server_id, kill_data)
+            await self.bot.database.add_kill_event(guild_id, server_id, kill_data)
 
             if kill_data['is_suicide']:
                 # Handle suicide - reset streak and increment suicide count
                 logger.debug(f"Processing suicide for {kill_data['victim']} in server {server_id}")
                 
                 # Reset victim's current streak to 0 and increment suicides
-                await self.bot.db_manager.update_pvp_stats(
+                await self.bot.database.update_pvp_stats(
                     guild_id, server_id, kill_data['victim'],
                     {"suicides": 1}
                 )
                 # Reset streak separately
-                await self.bot.db_manager.reset_player_streak(guild_id, server_id, kill_data['victim'])
+                await self.bot.database.reset_player_streak(guild_id, server_id, kill_data['victim'])
                 
             else:
                 # Handle actual PvP kill - proper streak and distance tracking
                 logger.debug(f"Processing kill: {kill_data['killer']} -> {kill_data['victim']} in server {server_id}")
                 
                 # Update killer: increment kills and streak
-                await self.bot.db_manager.increment_player_kill(
+                await self.bot.database.increment_player_kill(
                     guild_id, server_id, kill_data['killer'], kill_data.get('distance', 0)
                 )
 
                 # Update victim: increment deaths and reset streak
-                await self.bot.db_manager.increment_player_death(
+                await self.bot.database.increment_player_death(
                     guild_id, server_id, kill_data['victim']
                 )
 
@@ -304,7 +304,7 @@ class KillfeedParser:
             from ..utils.embed_factory import EmbedFactory
 
             # Get guild configuration
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await self.bot.database.guilds.find_one({'guild_id': guild_id})
             if not guild_config:
                 return
 
@@ -321,8 +321,8 @@ class KillfeedParser:
             victim_stats = None
             
             if not kill_data['is_suicide']:
-                killer_stats = await self.bot.db_manager.get_pvp_stats(guild_id, "default", kill_data['killer'])
-                victim_stats = await self.bot.db_manager.get_pvp_stats(guild_id, "default", kill_data['victim'])
+                killer_stats = await self.bot.database.get_pvp_stats(guild_id, "default", kill_data['killer'])
+                victim_stats = await self.bot.database.get_pvp_stats(guild_id, "default", kill_data['victim'])
 
             # Prepare embed data based on death type
             weapon = kill_data['weapon']
@@ -413,7 +413,7 @@ class KillfeedParser:
             logger.info("Running killfeed parser...")
 
             # Get all guilds with configured servers
-            guilds_cursor = self.bot.db_manager.guilds.find({})
+            guilds_cursor = self.bot.database.guilds.find({})
 
             async for guild_doc in guilds_cursor:
                 guild_id = guild_doc['guild_id']

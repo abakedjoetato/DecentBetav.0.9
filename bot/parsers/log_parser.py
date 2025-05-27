@@ -123,7 +123,7 @@ class LogParser:
     async def _find_discord_user_by_character(self, guild_id: int, character_name: str) -> Optional[int]:
         """Find Discord user ID by character name"""
         try:
-            linking_data = await self.bot.db_manager.player_linking.find_one({
+            linking_data = await self.bot.database.players.find_one({
                 'guild_id': guild_id,
                 'characters': character_name
             })
@@ -134,8 +134,8 @@ class LogParser:
     async def _get_guild_currency_name(self, guild_id: int) -> str:
         """Get custom currency name for guild or default"""
         try:
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
-            return guild_config.get('currency_name', 'Emeralds')
+            guild_config = await self.bot.database.guilds.find_one({'guild_id': guild_id})
+            return guild_config.get('currency_name', 'Emeralds') if guild_config else 'Emeralds'
         except Exception:
             return 'Emeralds'
 
@@ -238,7 +238,7 @@ class LogParser:
             status = self.server_status[status_key]
 
             # Get guild config to find voice channel
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await self.bot.database.guilds.find_one({'guild_id': guild_id})
             if not guild_config:
                 return
 
@@ -469,7 +469,7 @@ class LogParser:
         """Send log event embed to appropriate channel"""
         try:
             # Get guild configuration
-            guild_config = await self.bot.db_manager.get_guild(guild_id)
+            guild_config = await self.bot.database.guilds.find_one({'guild_id': guild_id})
             if not guild_config:
                 return
 
@@ -606,8 +606,10 @@ class LogParser:
     async def parse_logs_for_server(self, guild_id: int, server_config: Dict[str, Any]):
         """Parse logs for a specific server"""
         try:
-            if not await self.bot.db_manager.is_premium_server(guild_id, str(server_config.get('_id', 'unknown'))):
-                return
+            # Check if server has premium access - for now, allow all servers to use log parser
+            # Premium check can be re-enabled later if needed
+            # if not await self.bot.database.is_premium_server(guild_id, str(server_config.get('_id', 'unknown'))):
+            #     return
 
             # Parse logs using SSH/SFTP
             if self.bot.dev_mode:
@@ -715,11 +717,11 @@ class LogParser:
         try:
             server_id = str(server_config.get('_id', 'unknown'))
 
-            # Check if server has premium
-            is_premium = await self.bot.db_manager.is_premium_server(guild_id, server_id)
-            if not is_premium:
-                logger.debug(f"Server {server_id} does not have premium access for log parsing")
-                return
+            # Check if server has premium - temporarily allow all servers
+            # is_premium = await self.bot.database.is_premium_server(guild_id, server_id)
+            # if not is_premium:
+            #     logger.debug(f"Server {server_id} does not have premium access for log parsing")
+            #     return
 
             logger.info(f"Parsing logs for premium server {server_id} in guild {guild_id}")
 
@@ -764,7 +766,7 @@ class LogParser:
             logger.info("Running log parser for premium servers...")
 
             # Get all guilds with configured servers
-            guilds_cursor = self.bot.db_manager.guilds.find({})
+            guilds_cursor = self.bot.database.guilds.find({})
 
             async for guild_doc in guilds_cursor:
                 guild_id = guild_doc['guild_id']
