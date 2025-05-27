@@ -494,42 +494,7 @@ class Gambling(commands.Cog):
                 )
                 embed.set_footer(text="🎯 Good luck! Click SPIN to play")
                 
-                await ctx.respond(embed=embed, view=view)spond(embed=embed, ephemeral=True)
-                return
-
-            # Validate bet
-            if bet <= 0 or bet > 25000:
-                await ctx.respond("❌ Bet must be between $1 and $25,000!", ephemeral=True)
-                return
-
-            async with self.get_user_lock(user_key):
-                # Check balance
-                wallet = await self.bot.db_manager.get_wallet(guild_id, discord_id)
-                if wallet['balance'] < bet:
-                    await ctx.respond(f"❌ Insufficient funds! You have **${wallet['balance']:,}**", ephemeral=True)
-                    return
-
-                # Create roulette setup
-                embed = discord.Embed(
-                    title="🎯 EMERALD ROULETTE",
-                    description=f"**Bet:** ${bet:,} on **{choice.upper()}**\n**Balance:** ${wallet['balance']:,}\n\n*Click SPIN WHEEL to release the ball*",
-                    color=0xef4444
-                )
-
-                # Add betting info
-                if choice.isdigit():
-                    embed.add_field(name="🎲 Bet Type", value=f"Straight Number: **{choice}**\nPayout: 35:1", inline=True)
-                else:
-                    payouts = {"red": "1:1", "black": "1:1", "green": "35:1", "even": "1:1", "odd": "1:1", "low": "1:1", "high": "1:1"}
-                    embed.add_field(name="🎲 Bet Type", value=f"**{choice.upper()}**\nPayout: {payouts.get(choice, '1:1')}", inline=True)
-
-                embed.set_thumbnail(url="attachment://Gamble.png")
-                embed.set_footer(text="Powered by Discord.gg/EmeraldServers")
-
-                file = discord.File('assets/Gamble.png', filename='Gamble.png')
-                view = RouletteView(self, ctx, bet, choice)
-
-                await ctx.respond(embed=embed, file=file, view=view)
+                await ctx.respond(embed=embed, view=view)
 
         except Exception as e:
             logger.error(f"Failed to initialize roulette: {e}")
